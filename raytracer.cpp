@@ -233,7 +233,7 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
      } 
   } */
 
-  /*//version 3
+  //version 3
   if(!(intersectScene(scene, ray, &intersection))){
     return scene-> skyColor;
   }else{
@@ -254,9 +254,9 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
     } 
   }
   return ret;
-  }*/
+  }
    //version 4
-  if(!(intersectScene(scene, ray, &intersection))){
+  /*if(!(intersectScene(scene, ray, &intersection))){
     return scene-> skyColor;
   }else{
     vec3 v=-(ray->dir);
@@ -284,7 +284,7 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
   if (!(intersectScene(scene, &reflect, NULL))){
     
   return ret;
-  }
+  }*/
 
 void renderImage(Image *img, Scene *scene) {
 
