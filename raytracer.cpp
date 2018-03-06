@@ -6,6 +6,8 @@
 #include "kdtree.h"
 #include <stdio.h>
 
+#define MAX_DEPTH 1
+
 
 /// acne_eps is a small constant used to prevent acne when computing intersection
 //  or boucing (add this amount to the position before casting a new ray !
@@ -206,85 +208,58 @@ color3 shade(vec3 n, vec3 v, vec3 l, color3 lc, Material *mat ){
 
 //! if tree is not null, use intersectKdTree to compute the intersection instead of intersect scene
 color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {  
-  color3 cd = color3(0,0,0);
+  color3 direct_color = color3(0.f);
+  color3 reflect_color = color3(0.f);
+  color3 final_color = scene->skyColor;
   Intersection intersection;
-  /* 
-  //Version 1
-  if(!(intersectScene(scene, ray, &intersection))){
-    return scene-> skyColor;
-  }else{
-    ret= 0.5f*intersection.normal+0.5f;
-  }*/
 
-  /*//shade, Version 2
-  if(!(intersectScene(scene, ray, &intersection))){
-    return scene-> skyColor;
-  }else{
-    vec3 v=-(ray->dir);
-    vec3 n = intersection.normal; 
+  // version 4
+  if (intersectScene(scene, ray, &intersection))
+  {
+    vec3 v = -(ray->dir);
+    vec3 n = intersection.normal;
 
-    for (Light *light :scene->lights){
-      point3 l =light->position;
-      vec3 p = intersection.position;
-      vec3 lp= normalize(l-p);
-      color3 lc = light->color;
-
-      ret = ret + shade(n,v,lp,lc,intersection.mat);
-     } 
-  } */
-
-  //version 3
-  if(!(intersectScene(scene, ray, &intersection))){
-    return scene-> skyColor;
-  }else{
-    vec3 v=-(ray->dir);
-    vec3 n = intersection.normal; 
-    for (Light *light :scene->lights){
+    // Trace ray to each light to compute shades 
+    for (Light *light :scene->lights)
+    {
       //create shade ray
       Ray shade_r;
       point3 l =light->position;
       vec3 p = intersection.position;
-      vec3 lp= normalize(l-p);
-      point3 o=p+acne_eps*lp;
+      vec3 lp = normalize(l-p);
+      point3 o = p+acne_eps*lp;
       rayInit(&shade_r, o, lp, 0, distance(l,p));
-      if (!(intersectScene(scene, &shade_r, NULL))){
+      if (!(intersectScene(scene, &shade_r, NULL)))
+      {
         color3 lc = light->color;
-        ret += shade(n,v,lp,lc,intersection.mat);
-      } 
-    } 
-  }
-  return ret;
-  }
-   //version 4
-  /*if(!(intersectScene(scene, ray, &intersection))){
-    return scene-> skyColor;
-  }else{
-    vec3 v=-(ray->dir);
-    vec3 n = intersection.normal; 
-    for (Light *light :scene->lights){
-      //create shade ray
-      Ray shade_r;
-      point3 l =light->position;
-      vec3 p = intersection.position;
-      vec3 lp= normalize(l-p);
-      point3 o=p+acne_eps*lp;
-      rayInit(&shade_r, o, lp, 0, distance(l,p));
-      if (!(intersectScene(scene, &shade_r, NULL))){
-        color3 lc = light->color;
-        cd += shade(n,v,lp,lc,intersection.mat);
-      } 
+        direct_color += shade(n,v,lp,lc,intersection.mat);
+      }
     }
-  //reflect ray
-  Ray reflect;
-  int depth=0;
-  vec3 dir_r;
-  reflect(reflect, dir_r);
-  point3 o_r=p+acne_eps*dir;
-  rayInit(&reflect,o_r,dir_r, 0,tmax,depth)  
-  if (!(intersectScene(scene, &reflect, NULL))){
-    
-  return ret;
-  }*/
+
+    // Compute reflect ray
+    if (ray->depth < MAX_DEPTH)
+    {
+      Ray reflect_ray;
+      vec3 reflect_dir;
+      point3 o_r = intersection.position + acne_eps*n;
+
+      reflect_dir = reflect(ray->dir, n);
+      rayInit(&reflect_ray, o_r, reflect_dir, 0, ray->tmax, ray->depth+1);
+
+      // Compute reflect color
+      reflect_color = trace_ray(scene, &reflect_ray, tree);
+
+      float LH = dot(reflect_ray.dir, n);
+      float fresnel_term = RDM_Fresnel(LH, 1, intersection.mat->IOR);
+
+      reflect_color = reflect_color * fresnel_term;
+    }
+
+    final_color = direct_color + reflect_color;
+  }
+
+  return final_color;
+}
 
 void renderImage(Image *img, Scene *scene) {
 
@@ -296,14 +271,13 @@ void renderImage(Image *img, Scene *scene) {
 
   //! \todo initialize KdTree
 
-  float delta_y = 1.f / (img->height * 0.5f); //! one pixel size
+  float delta_y = 0.5f / (img->height * 0.5f); //! one pixel size
   vec3 dy = delta_y * aspect * scene->cam.ydir; //! one pixel step 
   vec3 ray_delta_y = (0.5f - img->height * 0.5f) / (img->height * 0.5f) * aspect * scene->cam.ydir;
 
-  float delta_x = 1.f / (img->width * 0.5f);
+  float delta_x = 0.5f / (img->width * 0.5f);
   vec3 dx = delta_x * scene->cam.xdir;
   vec3 ray_delta_x = (0.5f - img->width * 0.5f) / (img->width * 0.5f) *scene->cam.xdir;
-  
     
   for(size_t j=0; j<img->height; j++) {
     if(j!=0) printf("\033[A\r");
@@ -316,12 +290,20 @@ void renderImage(Image *img, Scene *scene) {
 #pragma omp parallel for
     for(size_t i=0; i<img->width; i++) {
       color3 *ptr = getPixelPtr(img, i,j);
-      vec3 ray_dir = scene->cam.center + ray_delta_x + ray_delta_y + float(i)*dx + float(j)*dy;
+      
+      for (int y = 0 ; y < 2 ; ++y)
+      {
+        for (int x = 0 ; x < 2 ; ++x)
+        {
+          vec3 ray_dir = scene->cam.center + ray_delta_x + (2.0f*ray_delta_x*float(x)) + ray_delta_y + (2.0f*ray_delta_y*float(y)) + float(i)*dx*2.0f + float(j)*dy*2.0f;
+          Ray rx;
+          rayInit(&rx, scene->cam.position, normalize(ray_dir));
+          
+          *ptr += trace_ray(scene, &rx, tree);
+        }
+      }
 
-      Ray rx;
-      rayInit(&rx, scene->cam.position, normalize(ray_dir));
-      *ptr = trace_ray(scene, &rx, tree);
-
+      *ptr = *ptr / 4.0f;
     }
   }
 }
