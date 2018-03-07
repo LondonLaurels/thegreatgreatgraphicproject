@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define MAX_DEPTH 1
-
+#define ANTI_ALIASING 1
 
 /// acne_eps is a small constant used to prevent acne when computing intersection
 //  or boucing (add this amount to the position before casting a new ray !
@@ -271,11 +271,11 @@ void renderImage(Image *img, Scene *scene) {
 
   //! \todo initialize KdTree
 
-  float delta_y = 0.5f / (img->height * 0.5f); //! one pixel size
+  float delta_y = 1.f / (img->height * 0.5f); //! one pixel size
   vec3 dy = delta_y * aspect * scene->cam.ydir; //! one pixel step 
   vec3 ray_delta_y = (0.5f - img->height * 0.5f) / (img->height * 0.5f) * aspect * scene->cam.ydir;
 
-  float delta_x = 0.5f / (img->width * 0.5f);
+  float delta_x = 1.f / (img->width * 0.5f);
   vec3 dx = delta_x * scene->cam.xdir;
   vec3 ray_delta_x = (0.5f - img->width * 0.5f) / (img->width * 0.5f) *scene->cam.xdir;
     
@@ -291,19 +291,20 @@ void renderImage(Image *img, Scene *scene) {
     for(size_t i=0; i<img->width; i++) {
       color3 *ptr = getPixelPtr(img, i,j);
       
-      for (int y = 0 ; y < 2 ; ++y)
+      for (int y = 0 ; y < ANTI_ALIASING ; ++y)
       {
-        for (int x = 0 ; x < 2 ; ++x)
+        for (int x = 0 ; x < ANTI_ALIASING ; ++x)
         {
-          vec3 ray_dir = scene->cam.center + ray_delta_x + (2.0f*ray_delta_x*float(x)) + ray_delta_y + (2.0f*ray_delta_y*float(y)) + float(i)*dx*2.0f + float(j)*dy*2.0f;
+          vec3 ray_dir = scene->cam.center + ray_delta_x + float(float(i) + float(x)/ANTI_ALIASING)*dx
+                                           + ray_delta_y + float(float(j) + float(y)/ANTI_ALIASING)*dy;
           Ray rx;
           rayInit(&rx, scene->cam.position, normalize(ray_dir));
-          
+
           *ptr += trace_ray(scene, &rx, tree);
         }
       }
 
-      *ptr = *ptr / 4.0f;
+      *ptr = *ptr / float(ANTI_ALIASING*ANTI_ALIASING);
     }
   }
 }
