@@ -1,4 +1,3 @@
-
 #include "raytracer.h"
 #include "scene_types.h"
 #include "ray.h"
@@ -90,7 +89,7 @@ bool intersectScene(const Scene *scene, Ray *ray, Intersection *intersection) {
 
 /* --------------------------------------------------------------------------- */
 /*
- *	The following functions are coded from Cook-Torrance bsdf model description and are suitable only
+ *  The following functions are coded from Cook-Torrance bsdf model description and are suitable only
  *  for rough dielectrics material (RDM. Code has been validated with Mitsuba renderer)
  */
 
@@ -271,11 +270,11 @@ void renderImage(Image *img, Scene *scene) {
 
   //! \todo initialize KdTree
 
-  float delta_y = 0.5f / (img->height * 0.5f); //! one pixel size
+  float delta_y = 1.0f / (img->height * 0.5f); //! one pixel size
   vec3 dy = delta_y * aspect * scene->cam.ydir; //! one pixel step 
   vec3 ray_delta_y = (0.5f - img->height * 0.5f) / (img->height * 0.5f) * aspect * scene->cam.ydir;
 
-  float delta_x = 0.5f / (img->width * 0.5f);
+  float delta_x = 1.0f / (img->width * 0.5f);
   vec3 dx = delta_x * scene->cam.xdir;
   vec3 ray_delta_x = (0.5f - img->width * 0.5f) / (img->width * 0.5f) *scene->cam.xdir;
     
@@ -291,11 +290,12 @@ void renderImage(Image *img, Scene *scene) {
     for(size_t i=0; i<img->width; i++) {
       color3 *ptr = getPixelPtr(img, i,j);
       
+      vec3 const_arg = scene->cam.center + ray_delta_x + ray_delta_y + float(i)*dx +float(j)*dy;
       for (int y = 0 ; y < 2 ; ++y)
       {
         for (int x = 0 ; x < 2 ; ++x)
         {
-          vec3 ray_dir = scene->cam.center + ray_delta_x + (2.0f*ray_delta_x*float(x)) + ray_delta_y + (2.0f*ray_delta_y*float(y)) + float(i)*dx*2.0f + float(j)*dy*2.0f;
+          vec3 ray_dir = const_arg+ float((x-1.0f)*(delta_x/2.0f)) +  float((y-1.0f)*(delta_y/2.0f)) ;
           Ray rx;
           rayInit(&rx, scene->cam.position, normalize(ray_dir));
           
