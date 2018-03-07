@@ -295,7 +295,7 @@ void renderImage(Image *img, Scene *scene) {
       {
         for (int x = 0 ; x < 2 ; ++x)
         {
-          vec3 ray_dir = const_arg+ float((x-1.0f)*(delta_x/2.0f)) +  float((y-1.0f)*(delta_y/2.0f)) ;
+          vec3 ray_dir = const_arg+ float(x)*(dx/2.0f) +  float(y)*(dy/2.0f) ;
           Ray rx;
           rayInit(&rx, scene->cam.position, normalize(ray_dir));
           
