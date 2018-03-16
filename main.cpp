@@ -7,8 +7,8 @@
 #include "raytracer.h"
 #include "image.h"
 
-#define WIDTH 1920
-#define HEIGHT 1080
+#define WIDTH 800//1920
+#define HEIGHT 600//1080
 
 /* nickel :
  mat.diffuseColor = color3(0.014, 0.012, 0.012);
@@ -271,6 +271,47 @@ Scene* initScene3(){
     return scene;
 }
 
+Scene * initScene4() {
+    Scene *scene = initScene();
+    setCamera(scene, point3(3,1,0), vec3(0,0.3,0), vec3(0,1,0), 60, (float)WIDTH/(float)HEIGHT);
+    setSkyColor(scene, color3(0.1f, 0.3f, 0.5f));
+    Material mat;
+    mat.IOR = 1.3;
+    mat.roughness = 0.1;
+    mat.specularColor = color3(0.5f);
+
+    mat.diffuseColor = color3(.5f);
+    
+    addObject( scene, initSphere(point3(0,0, 0),0.25, mat));
+
+
+    mat.diffuseColor = color3(0.5f, 0.f, 0.f);
+    addObject( scene, initSphere(point3(1,0, 0),.25, mat));
+
+
+    mat.diffuseColor = color3(0.f, 0.5f, 0.5f);
+    addObject( scene, initSphere(point3(0,1, 0),.25, mat));
+
+    mat.diffuseColor = color3(0.f, 0.f, 0.5f);
+    addObject( scene, initSphere(point3(0,0,1),.25, mat));
+
+
+    mat.diffuseColor  = color3(0.6f);
+    addObject(scene, initPlane(vec3(0,1,0), 0, mat));
+    
+    mat.diffuseColor = color3(1, 0, 0);
+    addObject(scene, initTriangle(point3(0, 1, 0), point3(0, 0, 1), point3(1, 0, 0), mat));
+    mat.diffuseColor = color3(0, 1, 0);
+    addObject(scene, initTriangle(point3(0, 1, 0), point3(0, 0, 0), point3(0, 0, 1), mat));
+    mat.diffuseColor = color3(0, 0, 1);
+    addObject(scene, initTriangle(point3(0, 1, 0), point3(0, 0, 0), point3(1, 0, 0), mat));
+    
+    addLight(scene, initLight(point3(10, 10,10), color3(1,1,1)));
+    addLight(scene, initLight(point3(4, 10,-2), color3(1,1,1)));
+
+    return scene;
+}
+
 int main(int argc, char *argv[]) {
     printf("Welcom to the L3 IGTAI RayTracer project\n");
 
@@ -305,7 +346,10 @@ int main(int argc, char *argv[]) {
     case  3 :
         scene = initScene3();
         break;
-	
+	case  4 :
+        scene = initScene4();
+        break;
+
     default :
         scene = initScene0();
         break;

@@ -73,15 +73,66 @@ bool intersectSphere(Ray *ray, Intersection *intersection, Object *obj) {
   return true;
 }
 
+bool intersectTriangle (Ray *ray, Intersection *intersection, Object *triangle) {
+  point3 p1 = triangle->geom.triangle.p1;
+  point3 p2 = triangle->geom.triangle.p2;
+  point3 p3 = triangle->geom.triangle.p3;
+  
+  vec3 n = cross((p2 - p1), (p3 - p1));
+  n = normalize(n);
+  float cos_theta = dot(n, ray->dir);
+  
+  //ray parallel
+  if (cos_theta == 0) return false;
+  
+  float D = dot(-n, p1);
+
+  float t = -(dot(n, ray->orig) + D) / cos_theta;
+  
+  if (t < 0 || t > ray->tmax || t < ray->tmin) return false;
+  
+  vec3 interPoint = rayAt(*ray, t);
+  
+  vec3 edge0 = p2 - p1;
+  vec3 edge1 = p3 - p2;
+  vec3 edge2 = p1 - p3;
+  
+  vec3 c0 = interPoint - p1;
+  vec3 c1 = interPoint - p2;
+  vec3 c2 = interPoint - p3;
+  
+  if (dot(n, cross(edge0, c0)) > 0 &&
+      dot(n, cross(edge1, c1)) > 0 &&
+      dot(n, cross(edge2, c2)) > 0){
+    if(intersection!=NULL){
+      intersection->normal = n;
+      intersection->position = interPoint;
+      intersection->mat = &triangle->mat;
+      ray->tmax = t;
+    }
+    return true;
+  }
+  
+  return false;
+}
+
 
 bool intersectScene(const Scene *scene, Ray *ray, Intersection *intersection) {
   bool hasIntersection = false;
 
   for (Object *obj:scene->objects){
-    if(obj->geom.type == SPHERE){
-      hasIntersection |= intersectSphere(ray,intersection,obj);
-    }else{
-      hasIntersection |= intersectPlane(ray, intersection, obj);
+    switch (obj->geom.type){
+      case SPHERE:
+        hasIntersection |= intersectSphere(ray,intersection,obj);
+        break;  
+      case PLANE:
+        hasIntersection |= intersectPlane(ray, intersection, obj);
+        break;
+      case TRIANGLE:
+        hasIntersection |= intersectTriangle(ray, intersection, obj);      
+        break;
+      default:
+        perror("Unknow object\n");   
     }
   }
   return hasIntersection;;
@@ -289,7 +340,6 @@ void renderImage(Image *img, Scene *scene) {
 #pragma omp parallel for
     for(size_t i=0; i<img->width; i++) {
       color3 *ptr = getPixelPtr(img, i,j);
-      
       vec3 const_arg = scene->cam.center + ray_delta_x + ray_delta_y + float(i)*dx +float(j)*dy;
       for (int y = 0 ; y < 2 ; ++y)
       {
